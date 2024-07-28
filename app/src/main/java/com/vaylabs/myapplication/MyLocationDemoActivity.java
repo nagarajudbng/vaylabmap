@@ -21,27 +21,24 @@ import static com.google.android.libraries.places.api.model.Place.Field.LAT_LNG;
 
 import android.Manifest.permission;
 import android.annotation.SuppressLint;
-import android.app.Activity;
 import android.content.Context;
-import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
-import android.location.Address;
-import android.location.Geocoder;
+import android.graphics.Point;
 import android.location.Location;
 import android.location.LocationManager;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
-import android.view.Window;
+import android.view.ViewTreeObserver;
 import android.view.WindowManager;
 import android.widget.Button;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.appcompat.widget.SearchView;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
@@ -58,14 +55,15 @@ import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.GoogleMap.OnMyLocationButtonClickListener;
 import com.google.android.gms.maps.GoogleMap.OnMyLocationClickListener;
 import com.google.android.gms.maps.OnMapReadyCallback;
+import com.google.android.gms.maps.Projection;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.BitmapDescriptorFactory;
+import com.google.android.gms.maps.model.CameraPosition;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.LatLngBounds;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.maps.model.Polygon;
-import com.google.android.gms.maps.model.PolygonOptions;
 import com.google.android.gms.maps.model.PolylineOptions;
 import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.libraries.places.api.Places;
@@ -76,16 +74,11 @@ import com.google.android.libraries.places.widget.listener.PlaceSelectionListene
 import com.google.maps.DirectionsApi;
 import com.google.maps.GeoApiContext;
 import com.google.maps.PendingResult;
-import com.google.maps.model.DirectionsLeg;
 import com.google.maps.model.DirectionsResult;
-import com.google.maps.model.DirectionsRoute;
-import com.google.maps.model.DirectionsStep;
 import com.google.maps.model.TravelMode;
 import com.vaylabs.myapplication.repository.java.Bounds;
 import com.vaylabs.myapplication.repository.java.Root;
-import com.vaylabs.myapplication.repository.java.Viewport;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -146,6 +139,8 @@ public class MyLocationDemoActivity extends AppCompatActivity
     private LinearLayout controlLayout;
     private Button startButton;
     private Button cancelButton;
+    private ImageView locationMarker;
+    private View mapView;
 
     @SuppressLint("MissingInflatedId")
     @Override
@@ -153,6 +148,7 @@ public class MyLocationDemoActivity extends AppCompatActivity
         super.onCreate(savedInstanceState);
         setContentView(R.layout.my_location_demo);
         controlLayout = findViewById(R.id.control_layout);
+        locationMarker = findViewById(R.id.location_marker);
 //        requestWindowFeature(Window.FEATURE_NO_TITLE);
 //        this.getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,WindowManager.LayoutParams.FLAG_FULLSCREEN);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
@@ -171,7 +167,7 @@ public class MyLocationDemoActivity extends AppCompatActivity
         AutocompleteSupportFragment autocompleteFragment = (AutocompleteSupportFragment) getSupportFragmentManager().findFragmentById(R.id.place_autocomplete_fragment);
         List<Place.Field> fields = Arrays.asList(ID, ADDRESS, LAT_LNG);
         autocompleteFragment.setPlaceFields(fields);
-
+        mapView = findViewById(R.id.map);
         // Set up a PlaceSelectionListener to handle the response
         autocompleteFragment.setOnPlaceSelectedListener(new PlaceSelectionListener() {
             @Override
@@ -253,8 +249,8 @@ public class MyLocationDemoActivity extends AppCompatActivity
             destinationLatLng =  null;
             map.clear();
         });
-        CustomBottomSheetDialogFragment bottomSheetDialogFragment = new CustomBottomSheetDialogFragment();
-        bottomSheetDialogFragment.show( getSupportFragmentManager(), CustomBottomSheetDialogFragment.TAG);
+//        CustomBottomSheetDialogFragment bottomSheetDialogFragment = new CustomBottomSheetDialogFragment();
+//        bottomSheetDialogFragment.show( getSupportFragmentManager(), CustomBottomSheetDialogFragment.TAG);
     }
 
     @Override
@@ -357,7 +353,7 @@ public class MyLocationDemoActivity extends AppCompatActivity
                                 mLastLocation = location;
                                 double latitude = location.getLatitude();
                                 double longitude = location.getLongitude();
-                                map.moveCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(latitude,longitude), 15f));
+//                                map.moveCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(latitude,longitude), 15f));
                                 // Example: Log the current location
                                 Log.d("MapsActivity", "Latitude: " + latitude + ", Longitude: " + longitude);
 
@@ -557,9 +553,9 @@ public class MyLocationDemoActivity extends AppCompatActivity
         mCurrLocationMarker = map.addMarker(markerOptions);
 
         //move map camera
-        if(isStarted) {
-            map.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng, 14));
-        }
+//        if(isStarted) {
+//            map.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng, 14));
+//        }
         if(rectangle!=null){
             rectangle.remove();
         }
@@ -571,17 +567,38 @@ public class MyLocationDemoActivity extends AppCompatActivity
 
         northWestMarker = map.addMarker(new MarkerOptions().position(northwest).title("northwest"));
         southEastMarker = map.addMarker(new MarkerOptions().position(southeast).title("southeast"));
-/*
-        // Create rectangle polygon options
-        PolygonOptions rectOptions = new PolygonOptions()
-                .add(northwest, northeast, southeast, southwest)
-                .strokeColor(Color.RED);
 
-        // Add rectangle to map
-         rectangle = map.addPolygon(rectOptions);
- */
+            adjustCameraPosition(latLng);
          }
     }
+    private void adjustCameraPosition(LatLng targetLatLng) {
+        if (map == null) return;
 
+        CameraPosition cameraPosition = new CameraPosition.Builder()
+                .target(targetLatLng)
+//                .tilt(tilt)
+                .zoom(14)
+//                .bearing(bearing)
+                .build();
+        map.moveCamera(CameraUpdateFactory.newCameraPosition(cameraPosition));
+
+
+        // Get map view size
+        int mapWidth = mapView.getWidth();
+        int mapHeight = mapView.getHeight();
+
+
+        LatLng mapCenter = map.getCameraPosition().target;
+        Projection projection = map.getProjection();
+        Point centerPoint = projection.toScreenLocation(mapCenter);
+
+
+        centerPoint.y = centerPoint.y - (int) (mapHeight / 2.3);  // move center down for approx 22%
+
+        LatLng newCenterPoint = projection.fromScreenLocation(centerPoint);
+
+        map.animateCamera(CameraUpdateFactory.newLatLngZoom(newCenterPoint, 14));
+
+    }
 }
 // [END maps_android_sample_my_location]
