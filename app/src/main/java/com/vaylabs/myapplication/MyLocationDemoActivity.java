@@ -139,7 +139,6 @@ public class MyLocationDemoActivity extends AppCompatActivity
     private LinearLayout controlLayout;
     private Button startButton;
     private Button cancelButton;
-    private ImageView locationMarker;
     private View mapView;
 
     @SuppressLint("MissingInflatedId")
@@ -148,7 +147,6 @@ public class MyLocationDemoActivity extends AppCompatActivity
         super.onCreate(savedInstanceState);
         setContentView(R.layout.my_location_demo);
         controlLayout = findViewById(R.id.control_layout);
-        locationMarker = findViewById(R.id.location_marker);
 //        requestWindowFeature(Window.FEATURE_NO_TITLE);
 //        this.getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,WindowManager.LayoutParams.FLAG_FULLSCREEN);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
